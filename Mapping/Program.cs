@@ -11,7 +11,7 @@ namespace Mapping
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main1(string[] args)
         {
             var type = Convert.ToInt32(Console.ReadLine());
             switch (type)
@@ -48,7 +48,6 @@ namespace Mapping
                         Console.WriteLine("Wait");
                         Console.ReadLine();
                     }
-
                 }
             }
         }
