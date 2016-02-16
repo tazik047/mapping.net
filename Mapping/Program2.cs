@@ -26,7 +26,7 @@ namespace Mapping
                     var str = "Hello world";
                     while (str!="")
                     {
-                        transmitter.BeginTransmit(str);
+                        transmitter.BeginTransmit(str).Wait();
                         Console.WriteLine("Press 0 to end");
                         str = Console.ReadLine();
                     }
@@ -51,7 +51,7 @@ namespace Mapping
             pipe.WaitForConnection();
         }
  
-        public void BeginTransmit(string text) {
+        public async Task BeginTransmit(string text) {
             var t = new MyClass
             {
                 Enum = MyEnum.Val1,
@@ -64,14 +64,8 @@ namespace Mapping
                 var arr = stream.ToArray();
                 var length = BitConverter.GetBytes(arr.Length);
 
-                pipe.BeginWrite(length, 0, 4, asyncCallback =>
-                {
-                    pipe.EndWrite(asyncCallback);
-                    pipe.BeginWrite(arr, 0, arr.Length, asyncCallback1 =>
-                    {
-                        pipe.EndWrite(asyncCallback1);
-                    }, null);
-                }, null);
+                await pipe.WriteAsync(length, 0, 4);
+                await pipe.WriteAsync(arr, 0, arr.Length);
             }
 
         }
@@ -89,28 +83,22 @@ namespace Mapping
             pipe.Connect();
         }
  
-        public void BeginReceive() {
+        public async Task BeginReceive() {
             DateTime dt = DateTime.Now;
 
             var length = new byte[4];
 
-            pipe.BeginRead(length, 0, 4, new AsyncCallback(result1 =>
+            await pipe.ReadAsync(length, 0, 4);
+            byte[] pipeBuffer = new byte[BitConverter.ToInt32(length, 0)];
+            await pipe.ReadAsync(pipeBuffer, 0, pipeBuffer.Length);
+            using (var stream = new MemoryStream(pipeBuffer))
             {
-                pipe.EndRead(result1);
-                byte[] pipeBuffer = new byte[BitConverter.ToInt32(length, 0)];
-                pipe.BeginRead(pipeBuffer, 0, pipeBuffer.Length, new AsyncCallback(result =>
-                {
-                    pipe.EndRead(result);
-                    using (var stream = new MemoryStream(pipeBuffer))
-                    {
-                        var bf = new BinaryFormatter();
-                        var res = (MyClass)bf.Deserialize(stream);
-                        Console.WriteLine(res);
-                    }
-                    Console.WriteLine("Pipe: " + (DateTime.Now - dt).TotalMilliseconds + " мс");
-                    Task.Run(() => BeginReceive());
-                }), null);
-            }), null);
+                var bf = new BinaryFormatter();
+                var res = (MyClass)bf.Deserialize(stream);
+                Console.WriteLine(res);
+            }
+            Console.WriteLine("Pipe: " + (DateTime.Now - dt).TotalMilliseconds + " мс");
+            Task.Run(() => BeginReceive());
         }
  
         public void Dispose() {
